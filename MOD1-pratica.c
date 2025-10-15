@@ -1,11 +1,11 @@
 //
-//PRÁTICA: SISTEMA DE BIBLIOTECA - PARTE 1
+//PRÁTICA: SISTEMA DE BIBLIOTECA - PARTE 2
 //
 // OBJETIVO DESTA PARTE: 
-// Implementar o cadastro e a listagem de livros usando array estático.
-// Foco em structs, entrada/saída de dados e organização básica.
-//
-//
+// Adicionar a funcionalidade de empréstimo e introduzir alocação dinâmica.
+//Os arrays de livros e empréstimos são alocados com malloc/calloc.
+//Nova struct para Empréstimo.
+//Liberação de memória com free.
 //
 
 #include <stdio.h>
@@ -14,15 +14,24 @@
 
 // --- Constantes Globais ---
 #define MAX_LIVROS 50
+#define MAX_EMPRESTIMOS 100 // Definimos uma capacidade para empréstimos.
 #define TAM_STRING 100
 
 // --- Definição da Estrutura (Struct) ---
+//Struct Livro agora tem um campo 'disponível' para controlar o status.
 struct Livro {
     char nome [TAM_STRING];
     char autor [TAM_STRING];
     char editora [TAM_STRING];
     int edicao;
+    int disponivel; //1 para sim, 0 para não.
 
+};
+
+//Nova struct para armazenar informções do empréstimo.
+struct Emprestimo {
+    int indiceLivro; // Para saber qual livro do array 'biblioteca' foi emprestado.
+    char nomeUsuario[TAM_STRING];
 };
 
 // --- Função para limpar o buffer de entrada ---
@@ -33,9 +42,23 @@ void limparBufferEntrada() {
 
 // --- Função Principal (main) ---
 int main() {
-    struct Livro biblioteca[MAX_LIVROS];
+    struct Livro *biblioteca;
+    struct Emprestimo *emprestimos; 
+
+    biblioteca = (struct Livro *) calloc(MAX_LIVROS, sizeof(struct Livro));
+
+    emprestimos = (struct Emprestimo *) malloc(MAX_EMPRESTIMOS * sizeof(struct Emprestimo));
+
+    if (biblioteca == NULL || emprestimos == NULL)
+    {
+        printf("Erro: Falha ao alocar memoria. \n");
+        return 1; // Retorna 1 para indicar um erro.
+    }
+
     int totalLivros = 0;
+    int totalEmprestimos = 0;
     int opcao;
+    
 
     // --- Laço Principal do Menu ---
     do {
@@ -46,15 +69,15 @@ int main() {
         printf("========================\n");
         printf("1 - Cadastro novo livro\n");
         printf("2 - Listar todos os livros\n");
+        printf("3 - Realizar emprestimo\n");
+        printf("4 - Listar emprestimos\n");
         printf("0 - Sair\n");
         printf("---------------------------\n");
         printf("Escolha uma opcao: ");
-
-        // Lê a opção do usuário.
         scanf("%d", &opcao);
-        limparBufferEntrada(); //Limpa o '\n' deixado pelo scanf.
+        limparBufferEntrada();
 
-        // --- Processamento da Opção ---
+
         switch (opcao)
         {
         case 1: // CADASTRO DE LIVRO
@@ -79,17 +102,18 @@ int main() {
                 scanf("%d", &biblioteca[totalLivros].edicao);
                 limparBufferEntrada();
 
-                totalLivros++;
-                // totalLivros = totalLivros +1;
+                //Ao cadastrar, o livro automaticamente se torna disponível.
+                biblioteca[totalLivros].disponivel = 1;
 
+                totalLivros++;
                 printf("\nLivro cadastrado com sucesso!\n");
 
             } else {
-                printf("Biblioteca cheia! Não é possível cadastrar mais livros.\n");
+                printf("Biblioteca cheia!\n");
             }
             
             printf("\nPressione Enter para continuar..");
-            getchar(); // Pausa para o usuário ler a mensagem antes de voltar ao menu.
+            getchar();
             break;
 
         case 2: //LISTAGEM DE LIVROS
@@ -106,32 +130,114 @@ int main() {
                     printf("Autor: %s\n", biblioteca[i].autor);
                     printf("Editora: %s\n", biblioteca[i].editora);
                     printf("Edicao: %d\n", biblioteca[i].edicao);
+                    // Mostra o status de disponibilidade.
+                    printf("Status: %s\n", biblioteca[i].disponivel ? "Disponivel" : "Emprestado");
                 }
                 printf("-------------------------\n");
                 
             }
-            
-            // A pausa é crucial para que o usuário
-            // veja a lista antes do próximo loop
-            // limpar a tela.
             printf("\nPressione Enter para continuar...");
             getchar();
             break;
 
-        case 0: // SAIR
-            printf("\nSaindo do sistema.../n");
-            break;
+        case 3: // REALIZAR EMPRESTIMO
+            printf("--- Realizar Emprestimo ---\n\n");
             
+            if (totalEmprestimos >= MAX_EMPRESTIMOS)
+            {
+                printf("Limite de emprestimos atingido!\n");
+            } else {
+                printf("Livros disponiveis:\n");
+                int disponiveis = 0;
+                for (int i = 0; i < totalLivros; i++)
+                {
+                    if (biblioteca[i].disponivel)
+                    {
+                        printf("%d - %s\n", i + 1, biblioteca[i].nome);
+                        disponiveis++;
+                    }
+                    
+                }
 
+                if (disponiveis == 0)
+                {
+                    printf("Nenhum livro disponivel para emprestimo.\n");
+                } else {
+                    printf("\nDigite o numero do livro que deseja emprestar: ");
+                    int numLivro;
+                    scanf("%d", &numLivro);
+                    limparBufferEntrada();
 
-        default: // OPÇÃO INVÁLIDA
-        printf("\nOpcao invalida! Tente novamente.\n");
+                    int indice = numLivro - 1; // Converte parao indice do array (0 a N-1).
+
+                    //Validação da escolha do usuário
+                    if (indice >= 0 && indice < totalLivros && biblioteca[indice].disponivel)
+                    {
+                        printf("Digite o nome do usuario que esta pegando o livro: ");
+                        fgets(emprestimos[totalEmprestimos].nomeUsuario,TAM_STRING, stdin);
+                        emprestimos[totalEmprestimos].nomeUsuario[strcspn(emprestimos[totalEmprestimos].nomeUsuario, "\n")] = '\0';
+                        
+                        //Registra o empréstimo
+                        emprestimos[totalEmprestimos].indiceLivro = indice;
+
+                        //Atualiza o status do livro para indisponível.
+                        biblioteca[indice].disponivel = 0;
+
+                        totalEmprestimos++;
+                        printf("\nEmprestimo realizado com sucesso!\n");
+                    } else {
+                        printf("\nNumero de livro invalido ou livro indisponivel.\n");
+                    }
+                    
+                }
+                
+                
+            }
+            printf("\nPressione Enter para continuar...");
+            getchar();
+            break;
+
+        case 4: //LISTAR EMPRESTIMOS
+                printf("--- Lista de Emprestimos ---\n\n");
+                if (totalEmprestimos == 0)
+                {
+                    printf("Nenhum emprestimo realizado.\n");
+                } else {
+                    for(int i = 0; i < totalEmprestimos; i++) {
+                        // Usa o indice armazenado no empréstimo para buscar o nome do livro.
+                        int indiceLivro = emprestimos[i].indiceLivro;
+                        printf("------------------------------------\n");
+                        printf("EMPRESTIMO %d\n", i + 1);
+                        printf("Livro: %s\n", biblioteca[indiceLivro].nome);
+                        printf("Usuario: %s\n", emprestimos[i].nomeUsuario);
+
+                    }
+                    printf("------------------------------------\n");
+                }
+                printf("\nPressione Enter para continuar...");
+                getchar();
+                break;
+                
+
+        case 0: // SAIR
+            printf("\nSaindo do sistema...\n");
+            break;
+        default:
+        printf("\nOpcao invalida!\n");
         printf("\nPressione Enter para continuar...");
         getchar();
             break;
-        }
 
+        }
     } while (opcao != 0);
+
+    // 2. LIBERAÇÃO DA MEMÓRIA
+    //Antes de terminar, é ESSENCIAL liberar a memória que foi alocada dinamicamente.
+    //Isso evita "memory leaks" (vazamentos de memória).
+    free(biblioteca);
+    free(emprestimos);
+
+    printf("Memoria liberada com sucesso!\n");
     
     return 0;
     
